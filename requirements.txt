@@ -1,0 +1,5 @@
+ffmpeg-python~=0.2.0
+mariadb~=1.0.0
+numpy~=1.19.0
+SQLAlchemy~=1.4.0
+stt~=1.0.0
