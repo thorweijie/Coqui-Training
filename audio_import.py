@@ -1,5 +1,6 @@
 import datetime
 from io import BytesIO
+import os
 import wave
 
 import ffmpeg
@@ -46,11 +47,13 @@ def write_wav(file_name, audio):
 
 
 # Extract raw audio data to be fed into CoquiSTT
-def process_audio(audio):
-    audio = normalize_audio(audio)
-    audio = BytesIO(audio)
-    with wave.open(audio) as wav:
-        processed_audio = np.frombuffer(wav.readframes(wav.getnframes()), np.int16)
+def process_audio(file):
+    with open(file, "rb") as file:
+        audio = file.read()
+        audio = normalize_audio(audio)
+        audio = BytesIO(audio)
+        with wave.open(audio) as wav:
+            processed_audio = np.frombuffer(wav.readframes(wav.getnframes()), np.int16)
     return processed_audio
 
 
@@ -104,8 +107,8 @@ def wav_from_blob(row):
     return audio_name
 
 
-# Update transfript and tokens tables based on tokens generated from generate_tokens
-def update_table(tokens, audio_name):
+# Update transcript and tokens tables based on tokens generated from generate_tokens
+def update_table(tokens, file_name):
     date_name = datetime.datetime.strftime("%b%Y").upper()
     if Session.query(Transcript).filter(Transcript.name.like(f"%{date_name}%")):
         row = (
@@ -117,7 +120,7 @@ def update_table(tokens, audio_name):
     phrase = " ".join([token["word"] for token in tokens["tokens"]])
     filename = f"{date_name}-{str(index).zfill(4)}"
     new_transcript = Transcript(
-        filename, phrase, audio_name, confidence=tokens["confidence"]
+        filename, phrase, file_name, confidence=tokens["confidence"]
     )
     tokens_arr = [
         Token(token["word"], token["start_time"], token["dutation"])
@@ -133,12 +136,14 @@ def main():
     scorer_path = "coqui-stt-0.9.3-models.scorer"
     model = stt.Model(model_path)
     model.enableExternalScorer(scorer_path)
-    rows = Session.query(Test).limit(1).all()
-    for row in rows:
-        audio_name = wav_from_blob(row)
-        processed_audio = process_audio(row.audio)
+    path = "audio/"
+    files = os.listdir(path)
+    # Convert audio in each file to 16kHz and 16-bit, feed the converted audio to CoquiSTT
+    # and update the transcript and tokens table with obtained transcript
+    for file in files:
+        processed_audio = process_audio(path + file)
         tokens = generate_tokens(processed_audio, model)
-        update_table(tokens, audio_name)
+        update_table(tokens, file)
 
 
 if __name__ == "__main__":
