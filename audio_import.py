@@ -32,20 +32,6 @@ def normalize_audio(audio):
     return out
 
 
-def write_wav(file_name, audio):
-    buffer = BytesIO(audio)
-    with wave.open(buffer) as wav:
-        frame_rate = wav.getframerate()
-        channels = wav.getnchannels()
-        sample_width = wav.getsamplewidth()
-
-    with wave.open(file_name, "wb") as wav:
-        wav.setnchannels(channels)
-        wav.setsampwidth(sample_width)
-        wav.setframerate(frame_rate)
-        wav.writeframes(audio)
-
-
 # Extract raw audio data to be fed into CoquiSTT
 def process_audio(file):
     with open(file, "rb") as file:
@@ -94,17 +80,6 @@ def generate_tokens(audio, model):
     result["confidence"] = transcript.confidence
     result["tokens"] = word_list
     return result
-
-
-# Convert raw audio data to wav file for storage
-def wav_from_blob(row):
-    transcript = row.transcript
-    audio = row.audio
-    audio_name = f"{str(row.record_id)}. {' '.join(transcript.split()[:5])}.wav"
-    # For demonstration purposes, audio files are stored in local storage
-    audio_path = "audio/"
-    write_wav(audio_path + audio_name, audio)
-    return audio_name
 
 
 # Update transcript and tokens tables based on tokens generated from generate_tokens
