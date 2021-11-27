@@ -12,7 +12,7 @@ from tables.tables import Token, Transcript
 
 Session = session()
 
-# Convert audio to 16kHz sampling rate and 16-bit bit depth
+# Convert audio to 16kHz sampling rate, 16-bit bit depth and mono channel
 def normalize_audio(audio):
     out, err = (
         ffmpeg.input("pipe:0")
@@ -109,8 +109,8 @@ def wav_from_blob(row):
 
 # Update transcript and tokens tables based on tokens generated from generate_tokens
 def update_table(tokens, file_name):
-    date_name = datetime.datetime.strftime("%b%Y").upper()
-    if Session.query(Transcript).filter(Transcript.name.like(f"%{date_name}%")):
+    date_name = datetime.datetime.now().strftime("%b%Y").upper()
+    if Session.query(Transcript).filter(Transcript.name.like(f"%{date_name}%")).first():
         row = (
             Session.query(Transcript).order_by(Transcript.transcript_id.desc()).first()
         )
@@ -118,12 +118,19 @@ def update_table(tokens, file_name):
     else:
         index = 1
     phrase = " ".join([token["word"] for token in tokens["tokens"]])
-    filename = f"{date_name}-{str(index).zfill(4)}"
+    audio_name = f"{date_name}-{str(index).zfill(4)}"
     new_transcript = Transcript(
-        filename, phrase, file_name, confidence=tokens["confidence"]
+        name=audio_name,
+        full_transcript=phrase,
+        audio=file_name,
+        confidence=tokens["confidence"],
     )
     tokens_arr = [
-        Token(token["word"], token["start_time"], token["dutation"])
+        Token(
+            token=token["word"],
+            start_time=token["start_time"],
+            duration=token["duration"],
+        )
         for token in tokens["tokens"]
     ]
     new_transcript.tokens = tokens_arr
@@ -138,8 +145,8 @@ def main():
     model.enableExternalScorer(scorer_path)
     path = "audio/"
     files = os.listdir(path)
-    # Convert audio in each file to 16kHz and 16-bit, feed the converted audio to CoquiSTT
-    # and update the transcript and tokens table with obtained transcript
+    # Convert audio in each file to 16kHz, 16-bit and mono channel, feed the converted audio to CoquiSTT
+    # and update the transcript and tokens tables with obtained transcript
     for file in files:
         processed_audio = process_audio(path + file)
         tokens = generate_tokens(processed_audio, model)
