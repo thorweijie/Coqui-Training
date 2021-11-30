@@ -92,7 +92,7 @@ def update_table(tokens, file_name):
         index = int(row.name[8:]) + 1
     else:
         index = 1
-    phrase = " ".join([token["word"] for token in tokens["tokens"]])
+    phrase = " ".join(token["word"] for token in tokens["tokens"])
     audio_name = f"{date_name}-{str(index).zfill(4)}"
     new_transcript = Transcript(
         name=audio_name,
